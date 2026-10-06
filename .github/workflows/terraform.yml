@@ -24,7 +24,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: stacks/network
+        working-directory: oblig_1/stacks/network
 
     steps:
       - name: Checkout
@@ -77,7 +77,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: stacks/app
+        working-directory: oblig_1/stacks/app
 
     steps:
       - name: Checkout
