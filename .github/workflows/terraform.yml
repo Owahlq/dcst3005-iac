@@ -1,0 +1,117 @@
+name: Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - test
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-network:
+    runs-on: ubuntu-latest
+
+    environment: ${{ inputs.environment }}
+
+    defaults:
+      run:
+        working-directory: stacks/network
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show Azure account
+        run: az account show
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="../../shared/backend.hcl" \
+            -backend-config="key=${{ inputs.environment }}/nettverk.tfstate"
+
+      - name: Terraform plan
+        run: |
+          terraform plan \
+            -var="prefix=omw" \
+            -var="environment=${{ inputs.environment }}" \
+            -var="location=norwayeast" \
+            -var='address_space=["172.16.0.0/16"]' \
+            -var='subnets={web=1,app=2,db=3}'
+
+      - name: Terraform apply
+        run: |
+          terraform apply \
+            -auto-approve \
+            -var="prefix=omw" \
+            -var="environment=${{ inputs.environment }}" \
+            -var="location=norwayeast" \
+            -var='address_space=["172.16.0.0/16"]' \
+            -var='subnets={web=1,app=2,db=3}'
+
+  terraform-app:
+    needs: terraform-network
+    runs-on: ubuntu-latest
+
+    environment: ${{ inputs.environment }}
+
+    defaults:
+      run:
+        working-directory: stacks/app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show Azure account
+        run: az account show
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="../../shared/backend.hcl" \
+            -backend-config="key=${{ inputs.environment }}/app.tfstate"
+
+      - name: Terraform plan
+        run: |
+          terraform plan \
+            -var="prefix=omw" \
+            -var="environment=${{ inputs.environment }}" \
+            -var="location=norwayeast"
+
+      - name: Terraform apply
+        run: |
+          terraform apply \
+            -auto-approve \
+            -var="prefix=omw" \
+            -var="environment=${{ inputs.environment }}" \
+            -var="location=norwayeast"
